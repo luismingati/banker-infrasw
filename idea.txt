@@ -1,0 +1,10 @@
+1-> abrir commands.txt, verificar se pode ser aberto, verificar formatação.
+2-> abrir customer.txt, verificar se pode ser aberto, verificar formatação.
+3-> verificar compatibilidade entre customer e commands.
+4-> verificar compatibilidade entre commands e entrada.
+
+após todas verificações:
+
+5-> verificar se o customer tem permissao para alocar os recursos.
+6-> verificar se ha recursos o suficiente para a requisição.
+7-> verificar se gera um estado seguro.
