@@ -3,6 +3,13 @@
 #include <string.h>
 #include <ctype.h>
 
+typedef struct ColsLines {
+  int columns;
+  int lines;
+} ColsLines;
+
+
+
 int isNumber(char *str) {
   for (int i = 0; str[i] != '\0'; i++) {
     if (!isdigit(str[i]) && str[i] != '-') {
@@ -68,10 +75,10 @@ int checkCommands() {
   fclose(file);
 }
 
-int checkCustomer() {
+ColsLines checkCustomer() {
   FILE *file = fopen("customer.txt", "r");
   if (file == NULL) {
-    printf("Fail to read customer.txt\n");
+    printf("1Fail to read customer.txt\n");
     exit(1);
   }
 
@@ -89,7 +96,7 @@ int checkCustomer() {
     for (int i = 0; i < length; i++) {
       if (line[i] == ',') {
         if (!lastIsNum) {
-          printf("Fail to read customer.txt\n");
+          printf("2Fail to read customer.txt\n");
           exit(1);
         }
         columnCount++;
@@ -102,28 +109,36 @@ int checkCustomer() {
     if (lastIsNum) {
       columnCount++;
     } else {
-      printf("Fail to read customer.txt\n");
+      printf("3Fail to read customer.txt\n");
       exit(1);
     }
 
     if (lineCount > 1 && columnCount != prevColumnCount) {
-      printf("Fail to read customer.txt\n");
+      printf("4Fail to read customer.txt\n");
       exit(1);
     }
 
     prevColumnCount = columnCount;
     if (!isValid) {
-      printf("Fail to read customer.txt\n");
+      printf("5Fail to read customer.txt\n");
       exit(1);
     }
   }
 
+
   if(!isValid) {
-    printf("Fail to read customer.txt\n");
+    printf("6Fail to read customer.txt\n");
     exit(1);
   }
-  return prevColumnCount;
+
+  ColsLines colsLines;
+  colsLines.columns = prevColumnCount;
+  colsLines.lines = lineCount;
+
+  printf("columns: %d\n", colsLines.columns);
+  printf("lines: %d\n", colsLines.lines);
   fclose(file);
+  return colsLines;
 }
 
 void checkCompatibilityCustomerAndCLI(int columns, int argc) {
@@ -139,12 +154,60 @@ void checkCompatibilityCommandsAndCLI(int columns, int argc) {
   }
 }
 
+// void initializeMatrix(int ** maximum, int ** alocation, int ** need, int * available, int cols, int lines) {
+//   for(int i = 0; i < lines; i++) {
+//     for(int j = 0; j < cols; j++) {
+//       alocation[i][j] = 0;
+//     }
+//   }
+// }
+
+void initializeMatrixData(int ** maximum, int ** allocation, int ** need, int cols, int lines) {
+  FILE *file = fopen("customer.txt", "r");
+
+  char line[2000];
+  int lineNum = 0;
+
+  while (fgets(line, sizeof(line), file)) {
+    char *token = strtok(line, ",");
+    int colNum = 0;
+    while (token != NULL && colNum < cols) {
+      maximum[lineNum][colNum] = atoi(token);
+      need[lineNum][colNum] = atoi(token);
+      allocation[lineNum][colNum] = 0;
+      token = strtok(NULL, ",");
+      colNum++;
+    }
+    lineNum++;
+  }
+
+  fclose(file);
+}
+
+
 int main(int argc, char *argv[]) {
-  int customerColumns = 0, commandsColumns = 0;
+  int commandsColumns;
+  ColsLines customerColumns;
+
   commandsColumns = checkCommands();
   customerColumns = checkCustomer();
-  checkCompatibilityCustomerAndCLI(customerColumns, argc);
+
+  checkCompatibilityCustomerAndCLI(customerColumns.columns, argc);
   checkCompatibilityCommandsAndCLI(commandsColumns, argc);
+
+  int **maximum = (int **)malloc(customerColumns.lines * sizeof(int *));
+  int **allocation = (int **)malloc(customerColumns.lines * sizeof(int *));
+  int **need = (int **)malloc(customerColumns.lines * sizeof(int *));
+  int *available = (int *)malloc(customerColumns.lines * sizeof(int));
+  for (int i = 0; i < customerColumns.lines; i++) {
+    maximum[i] = (int *)malloc(customerColumns.columns * sizeof(int));
+    allocation[i] = (int *)malloc(customerColumns.columns * sizeof(int));
+    need[i] = (int *)malloc(customerColumns.columns * sizeof(int));
+  }
+  for(int i = 0; i < customerColumns.columns; i++) {
+    available[i] = atoi(argv[i+1]);
+  }
+  initializeMatrixData(maximum, allocation, need, customerColumns.columns, customerColumns.lines);
   
   return 0;
 }
