@@ -361,7 +361,6 @@ void printCurrentState(int **maximum, int **allocation, int **need, int *availab
   fprintf(file, "\n");
 }
 
-
 int canRelease(int customer_num, int *resources, int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers) {
   for (int i = 0; i < numResources; i++) {
     if (resources[i] > allocation[customer_num][i]) {
@@ -440,7 +439,7 @@ void executeCommand(char *command, int numResources, int **maximum, int **alloca
 void readCommandFile(int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers) {
   FILE *file = fopen("commands.txt", "r");
   FILE *output = fopen("result.txt", "w");
-  char command[256];
+  char command[2000];
 
   while (fgets(command, sizeof(command), file) != NULL) {
     executeCommand(command, numResources, maximum, allocation, need, available, numCustomers, output);
