@@ -8,12 +8,6 @@ typedef struct ColsLines {
   int lines;
 } ColsLines;
 
-typedef struct {
-  char command[3];  
-  int customer;
-  int *resources;
-} Command;
-
 int isNumber(char *str) {
   for (int i = 0; str[i] != '\0'; i++) {
     if (!isdigit(str[i]) && str[i] != '-') {
@@ -27,12 +21,14 @@ int checkCommands() {
   FILE *file = fopen("commands.txt", "r");
   if (file == NULL) {
     printf("Fail to read commands.txt\n");
+    fclose(file);
     exit(1);
   }
 
   fseek(file, 0, SEEK_END);
   if (ftell(file) == 0) {
     printf("Fail to read commands.txt\n");
+    fclose(file);
     exit(1);
   }
   rewind(file);
@@ -49,8 +45,8 @@ int checkCommands() {
       if (line[i] == ' ') {
         spaceCount++;
         if (spaceCount > 1) {
-          fclose(file);
           printf("Fail to read commands.txt\n");
+          fclose(file);
           exit(1);
         }
       } else {
@@ -62,12 +58,14 @@ int checkCommands() {
 
     if (token == NULL) {
       printf("Fail to read commands.txt\n");
+      fclose(file);
       exit(1);
     }
 
     if (strcmp(token, "*") == 0) {
       if (strtok(NULL, " \n") != NULL) {
         printf("Fail to read commands.txt\n");
+        fclose(file);
         exit(1);
       }
       continue; 
@@ -75,6 +73,7 @@ int checkCommands() {
 
     if (!(strcmp(token, "RQ") == 0 || strcmp(token, "RL") == 0)) {
       printf("Fail to read commands.txt\n");
+      fclose(file);
       exit(1);
     }
 
@@ -83,6 +82,7 @@ int checkCommands() {
     while ((token = strtok(NULL, " \n")) != NULL) {
       if (!isNumber(token)) {
         printf("Fail to read commands.txt\n");
+        fclose(file);
         exit(1);
       }
       columnCount++;
@@ -90,6 +90,7 @@ int checkCommands() {
 
     if (!firstLine && (columnCount != prevColumnCount)) {
       printf("Fail to read commands.txt\n");
+      fclose(file);
       exit(1);
     }
 
@@ -212,16 +213,16 @@ void initializeMatrixData(int ** maximum, int ** allocation, int ** need, int co
   fclose(file);
 }
 
-int customerHasPermission(int customer_num, int *resources, int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers) {
+int customerHasPermission(int customerNum, int *resources, int numResources, int **need) {
   for (int i = 0; i < numResources; i++) {
-    if (resources[i] > need[customer_num][i]) {
+    if (resources[i] > need[customerNum][i]) {
       return 0;
     }
   }
   return 1;
 }
 
-int customerHasResources(int customer_num, int *resources, int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers) {
+int customerHasResources( int *resources, int numResources, int *available) {
   for (int i = 0; i < numResources; i++) {
     if (resources[i] > available[i]) {
       return 0;
@@ -270,28 +271,28 @@ int isSafe(int **allocation, int **need, int *available, int numCustomers, int n
   return 1;
 }
 
-void allocateResources(int customer_num, int *resources, int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers, FILE *file) {
-  if(!customerHasPermission(customer_num, resources, numResources, maximum, allocation, need, available, numCustomers)) {
+void allocateResources(int customerNum, int *resources, int numResources, int **allocation, int **need, int *available, int numCustomers, FILE *file) {
+  if(!customerHasPermission(customerNum, resources, numResources, need)) {
     for (int i = 0; i < numResources; i++) {
-      if (resources[i] > need[customer_num][i]) {
-        fprintf(file, "The customer %d request ", customer_num);
+      if (resources[i] > need[customerNum][i]) {
+        fprintf(file, "The customer %d request ", customerNum);
         for (int j = 0; j < numResources; j++) {
           fprintf(file, "%d ", resources[j]);
         }
-        fprintf(file, "was denied because it exceeds its maximum need\n");
+        fprintf(file, "was denied because exceed its maximum need\n");
         return;
       }
     }
   }
 
-  if(!customerHasResources(customer_num, resources, numResources, maximum, allocation, need, available, numCustomers)) {
+  if(!customerHasResources( resources, numResources, available)) {
     for (int i = 0; i < numResources; i++) {
       if (resources[i] > available[i]) {
         fprintf(file, "The resources ");
         for (int j = 0; j < numResources; j++) {
           fprintf(file, "%d ", available[j]);
         }
-        fprintf(file, "are not enough for customer %d request ", customer_num);
+        fprintf(file, "are not enough to customer %d request ", customerNum);
         for (int j = 0; j < numResources; j++) {
           fprintf(file, "%d ", resources[j]);
         }
@@ -304,81 +305,137 @@ void allocateResources(int customer_num, int *resources, int numResources, int *
 
   for (int i = 0; i < numResources; i++) {
     available[i] = available[i] - resources[i];
-    allocation[customer_num][i] = allocation[customer_num][i] + resources[i];
-    need[customer_num][i] = need[customer_num][i] - resources[i];
+    allocation[customerNum][i] = allocation[customerNum][i] + resources[i];
+    need[customerNum][i] = need[customerNum][i] - resources[i];
   }
   
   if(isSafe(allocation, need, available, numCustomers, numResources)) {
-    fprintf(file, "Allocate to customer %d the resources ", customer_num);
+    fprintf(file, "Allocate to customer %d the resources ", customerNum);
     for (int i = 0; i < numResources; i++) {
       fprintf(file, "%d ", resources[i]);
     }
     fprintf(file, "\n");
     return;
   } else {
-    fprintf(file, "The customer %d request ", customer_num);
+    fprintf(file, "The customer %d request ", customerNum);
     for (int j = 0; j < numResources; j++) {
       fprintf(file, "%d ", resources[j]);
     }
-    fprintf(file, "was denied because it results in an unsafe state \n");
+    fprintf(file, "was denied because result in an unsafe state\n");
     for (int i = 0; i < numResources; i++) {
       available[i] = available[i] + resources[i];
-      allocation[customer_num][i] = allocation[customer_num][i] - resources[i];
-      need[customer_num][i] = need[customer_num][i] + resources[i];
+      allocation[customerNum][i] = allocation[customerNum][i] - resources[i];
+      need[customerNum][i] = need[customerNum][i] + resources[i];
     }
   }
 }
 
-void printCurrentState(int **maximum, int **allocation, int **need, int *available, int numCustomers, int numResources, FILE *file) {
-  fprintf(file, "MAXIMUM | ALLOCATION | NEED\n");
+int calcMaxDigit(int ** matrix, int numCustomers, int numResources) {
+  int totalMaxDigits = 0;
+  for (int j = 0; j < numResources; j++) {
+    int colMaxDigits = 0;
+    for (int i = 0; i < numCustomers; i++) {
+      int digits = 0;
+      int number = matrix[i][j];
+      do {
+        digits++;
+        number /= 10;
+      } while (number != 0);
+      if (digits > colMaxDigits) {
+        colMaxDigits = digits;
+      }
+    }
+    totalMaxDigits += colMaxDigits;
+  }
+  return totalMaxDigits;
+}
+
+
+int * maxDecimalDigits(int ** matrix, int numCustomers, int numResources) {
+  int * max = (int *)malloc(numResources * sizeof(int));
+  for (int j = 0; j < numResources; j++) {
+    max[j] = 0; 
+  }
   for (int i = 0; i < numCustomers; i++) {
     for (int j = 0; j < numResources; j++) {
-      fprintf(file, "%d ", maximum[i][j]);
-      if (j == numResources - 1) {
-        fprintf(file, "  | ");
-      }
-    }
+      int digits = 0;
+      int number = matrix[i][j];
+      do {
+        digits++;
+        number /= 10;
+      } while (number != 0);
 
-    for (int j = 0; j < numResources; j++) {
-      fprintf(file, "%d ", allocation[i][j]);
-      if (j == numResources - 1) {
-        fprintf(file, "  | ");
-      }
-    }
-
-    for (int j = 0; j < numResources; j++) {
-      fprintf(file, "%d ", need[i][j]);
-      if (j == numResources - 1) {
-        fprintf(file, "\n");
+      if (digits > max[j]) {
+        max[j] = digits;
       }
     }
   }
 
+  return max;
+}
+
+void printCurrentState(int **maximum, int **allocation, int **need, int *available, int numCustomers, int numResources, FILE *file){
+  fprintf(file, "MAXIMUM ");
+  int max = calcMaxDigit(maximum, numCustomers, numResources);
+  for(int i = 8; i < max + numResources; i++) {
+    fprintf(file, " ");
+  }
+  fprintf(file, "| ALLOCATION ");
+  int alloc = calcMaxDigit(allocation, numCustomers, numResources);
+  for(int i = 11; i < alloc + numResources; i++) {
+    fprintf(file, " ");
+  }
+  fprintf(file, "| NEED\n");
+
+  int * maxDecimalDigitsMaximum = maxDecimalDigits(maximum, numCustomers, numResources);
+  int * maxDecimalDigitsAllocation = maxDecimalDigits(allocation, numCustomers, numResources);
+  int * maxDecimalDigitsNeed = maxDecimalDigits(need, numCustomers, numResources);
+
+  for(int i = 0; i < numCustomers; i++) {
+    for(int j = 0; j < numResources; j++) {
+      fprintf(file, "%*d ",maxDecimalDigitsMaximum[j], maximum[i][j]);
+    }
+    for(int j = max+numResources; j < 8; j++) {
+      fprintf(file, " ");
+    }
+    fprintf(file, "| ");
+    for(int j = 0; j < numResources; j++) {
+      fprintf(file, "%*d ",maxDecimalDigitsAllocation[j], allocation[i][j]);
+    }
+    for(int j = alloc+numResources; j < 11; j++) {
+      fprintf(file, " ");
+    }
+    fprintf(file, "| ");
+    for(int j = 0; j < numResources; j++) {
+      fprintf(file, "%*d ",maxDecimalDigitsNeed[j], need[i][j]);
+    }
+    fprintf(file, "\n");
+  }
   fprintf(file, "AVAILABLE ");
-  for (int i = 0; i < numResources; i++) {
+  for(int i = 0; i < numResources; i++) {
     fprintf(file, "%d ", available[i]);
   }
   fprintf(file, "\n");
 }
 
-int canRelease(int customer_num, int *resources, int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers) {
+int canRelease(int customerNum, int *resources, int numResources, int **allocation) {
   for (int i = 0; i < numResources; i++) {
-    if (resources[i] > allocation[customer_num][i]) {
+    if (resources[i] > allocation[customerNum][i]) {
       return 0;
     }
   }
   return 1;
 }
 
-void releaseResources(int customer_num, int *resources, int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers, FILE *file) {
-  if(!canRelease(customer_num, resources, numResources, maximum, allocation, need, available, numCustomers)) {
+void releaseResources(int customerNum, int *resources, int numResources, int **allocation, int **need, int *available, FILE *file) {
+  if(!canRelease(customerNum, resources, numResources, allocation)) {
     for (int i = 0; i < numResources; i++) {
-      if (resources[i] > allocation[customer_num][i]) {
-        fprintf(file, "The customer %d released ", customer_num);
+      if (resources[i] > allocation[customerNum][i]) {
+        fprintf(file, "The customer %d released ", customerNum);
         for (int j = 0; j < numResources; j++) {
           fprintf(file, "%d ", resources[j]);
         }
-        fprintf(file, "was denied because it exceeds its maximum allocation \n");
+        fprintf(file, "was denied because exceed its maximum allocation\n");
         return;
       }
     }
@@ -386,11 +443,11 @@ void releaseResources(int customer_num, int *resources, int numResources, int **
 
   for (int i = 0; i < numResources; i++) {
     available[i] += resources[i];
-    allocation[customer_num][i] -= resources[i];
-    need[customer_num][i] += resources[i];
+    allocation[customerNum][i] -= resources[i];
+    need[customerNum][i] += resources[i];
   }
 
-  fprintf(file, "Release to customer %d the resources ", customer_num);
+  fprintf(file, "Release from customer %d the resources ", customerNum);
   for (int i = 0; i < numResources; i++) {
     fprintf(file, "%d ", resources[i]);
   }
@@ -399,12 +456,12 @@ void releaseResources(int customer_num, int *resources, int numResources, int **
 
 void executeCommand(char *command, int numResources, int **maximum, int **allocation, int **need, int *available, int numCustomers, FILE *file) {
   char cmdType[3];
-  int customer_num, resources[numResources];
+  int customerNum, resources[numResources];
 
   sscanf(command, "%s", cmdType);
 
   if (strcmp(cmdType, "RQ") == 0) {
-    sscanf(command, "%s %d", cmdType, &customer_num);
+    sscanf(command, "%s %d", cmdType, &customerNum);
     char *token = strtok(command, " ");
     token = strtok(NULL, " ");
 
@@ -416,9 +473,9 @@ void executeCommand(char *command, int numResources, int **maximum, int **alloca
       }
       resources[i] = atoi(token);
     }
-    allocateResources(customer_num, resources, numResources, maximum, allocation, need, available, numCustomers, file);
+    allocateResources(customerNum, resources, numResources, allocation, need, available, numCustomers, file);
   } else if (strcmp(cmdType, "RL") == 0) {
-      sscanf(command, "%s %d", cmdType, &customer_num);
+      sscanf(command, "%s %d", cmdType, &customerNum);
       char *token = strtok(command, " ");
       token = strtok(NULL, " "); 
 
@@ -430,7 +487,7 @@ void executeCommand(char *command, int numResources, int **maximum, int **alloca
         }
         resources[i] = atoi(token);
       }
-      releaseResources(customer_num, resources, numResources, maximum, allocation, need, available, numCustomers, file);
+      releaseResources(customerNum, resources, numResources, allocation, need, available, file);
   } else if (strcmp(cmdType, "*") == 0) {
       printCurrentState(maximum, allocation, need, available, numCustomers, numResources, file);
   }
@@ -444,6 +501,7 @@ void readCommandFile(int numResources, int **maximum, int **allocation, int **ne
   while (fgets(command, sizeof(command), file) != NULL) {
     executeCommand(command, numResources, maximum, allocation, need, available, numCustomers, output);
   }
+
   fclose(file);
 }
 
